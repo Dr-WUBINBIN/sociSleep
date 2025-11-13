@@ -1,10 +1,10 @@
 
-# About sleep_analysis.
-# sleep_analysis_v1.0.
-# designed for analyzing output result from social_sleep_tracker_v1.0.
+# About sociSleep_analyzer.
+# sociSleep_analyzer_v1.0.
+# designed for analyzing output result from sociSleep_tracker_v1.0.
 # developed by Binbin Wu Ph.D.
 # Ja Lab, UF Scripps Institute, University of Florida
-# © 2025. All rights reserved.
+# ©2025. All rights reserved.
 
 import pandas as pd
 import numpy as np
@@ -94,7 +94,7 @@ class FlySleepAnalyzer:
         print(f"Results saved to {output_file}")
 
 # === Usage example ===
-file_path = '/Users/binbin/Documents/social_sleep_tracker/fly_movement_dark_marker.csv'
+file_path = '/Users/binbin/Documents/social_sleep_tracker/sociSleep_raw_data.csv'
 output_file = 'fly_sleep_30min_result.csv'
 
 analyzer = FlySleepAnalyzer(file_path, sampling_interval_sec=10)

@@ -1,8 +1,8 @@
-# About social_sleep_tracker.
-# social_sleep_tracker_v1.0
+# About sociSleep_tracker.
+# sociSleep_tracker_v1.1
 # developed by Binbin Wu Ph.D.
 # Ja Lab, UF Scripps Institute, University of Florida
-# © 2025. All rights reserved.
+# ©2025. All rights reserved.
 
 import cv2
 import numpy as np
@@ -12,7 +12,7 @@ import os
 from collections import deque
 
 # === Output file ===
-output_file = os.path.join(os.getcwd(), "fly_movement_dark_marker.csv")
+output_file = os.path.join(os.getcwd(), "sociSleep_raw_data.csv")
 
 # === Open Logitech camera ===
 cap = cv2.VideoCapture(1, cv2.CAP_MSMF)
@@ -65,6 +65,13 @@ centroid_history = [deque(maxlen=frames_per_sec + 1), deque(maxlen=frames_per_se
 results = []
 last_log_time = datetime.now()
 
+
+# --- Track last applied values ---
+last_exposure_value = None
+last_brightness = None
+last_contrast = None
+
+
 print("🎥 Press 'q' or click STOP to end tracking.")
 
 # === Main Loop ===
@@ -86,10 +93,20 @@ while True:
     center_x = cv2.getTrackbarPos('Center X', 'Fly Tracker')
     center_y = cv2.getTrackbarPos('Center Y', 'Fly Tracker')
 
-    # --- Exposure adjustment ---
+    # --- Update camera properties only when changed ---
     exposure_value = -float(exposure_slider)
-    cap.set(cv2.CAP_PROP_EXPOSURE, exposure_value)
+    if exposure_value != last_exposure_value:
+        cap.set(cv2.CAP_PROP_EXPOSURE, exposure_value)
+        last_exposure_value = exposure_value
 
+    if brightness != last_brightness:
+        cap.set(cv2.CAP_PROP_BRIGHTNESS, brightness / 100.0)
+        last_brightness = brightness
+        
+    if contrast != last_contrast:
+        cap.set(cv2.CAP_PROP_CONTRAST, contrast / 50.0)
+        last_contrast = contrast
+    
     # --- Adjust brightness/contrast ---
     frame = cv2.convertScaleAbs(frame, alpha=contrast / 50.0, beta=(brightness - 50) * 2)
 
