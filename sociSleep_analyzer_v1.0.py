@@ -1,16 +1,16 @@
 
-# About sociSleep_analyzer.
-# sociSleep_analyzer_v1.0.
-# designed for analyzing output result from sociSleep_tracker_v1.0.
+# About sleep_analysis.
+# sleep_analysis_v1.0.
+# designed for analyzing output result from social_sleep_tracker_v1.0.
 # developed by Binbin Wu Ph.D.
 # Ja Lab, UF Scripps Institute, University of Florida
-# ©2025. All rights reserved.
+# © 2025. All rights reserved.
 
 import pandas as pd
 import numpy as np
 
 class FlySleepAnalyzer:
-    def __init__(self, file_path, sampling_interval_sec=10):
+    def __init__(self, file_path, sampling_interval_sec=1):
         self.data = pd.read_csv(file_path)
         print("Columns in the file:", self.data.columns)  # Check loaded columns
         
@@ -21,7 +21,7 @@ class FlySleepAnalyzer:
         self.sampling_interval_sec = sampling_interval_sec
         
         # Number of samples that represent 30 minutes:
-        # 30 minutes = 30 * 60 seconds. Divide by sampling interval (e.g., 10 s) -> 180 samples.
+        # 30 minutes = 30 * 60 seconds. Divide by sampling interval (e.g., 1 s) -> 1800 samples.
         self.time_interval = int((30 * 60) / self.sampling_interval_sec)
 
         # optional: store number of flies / timepoints
@@ -77,12 +77,16 @@ class FlySleepAnalyzer:
     def write_results_to_csv(self, output_file):
         total_sleep_minutes = self.calculate_sleep()
         
-        # Build dataframe with Fly names if available, else Fly_1...
+        # Build dataframe with Fly names if available
+        num_flies_calculated = total_sleep_minutes.shape[0]
+        if custom_fly_ids and len(custom_fly_ids) == num_flies_calculated:
+            fly_names = custom_fly_ids
         # Try to recover fly names from original CSV columns
-        try:
-            fly_names = list(self.data.columns[1:1 + total_sleep_minutes.shape[0]])
-        except Exception:
-            fly_names = [f"Fly_{i+1}" for i in range(total_sleep_minutes.shape[0])]
+        else:
+            try:
+                fly_names = list(self.data.columns[1:1 + total_sleep_minutes.shape[0]])
+            except Exception:
+                fly_names = [f"Fly_{i+1}" for i in range(total_sleep_minutes.shape[0])]
         
         # Transpose to intervals as rows (optional — choose layout you prefer)
         df = pd.DataFrame(total_sleep_minutes.T, columns=fly_names)
@@ -94,9 +98,10 @@ class FlySleepAnalyzer:
         print(f"Results saved to {output_file}")
 
 # === Usage example ===
-file_path = '/Users/binbin/Documents/social_sleep_tracker/sociSleep_raw_data.csv'
-output_file = 'fly_sleep_30min_result.csv'
+file_path = '/Users/binbin/Downloads/wDahomey_night.csv'
+output_file = 'sleep_time.csv'
+custom_fly_ids = ["FlyA_sleep", "FlyB_sleep", "FlyC_sleep"] # Adjust this list length to match your data
 
-analyzer = FlySleepAnalyzer(file_path, sampling_interval_sec=10)
+analyzer = FlySleepAnalyzer(file_path, sampling_interval_sec=1)
 analyzer.write_results_to_csv(output_file)
 
