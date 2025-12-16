@@ -1,5 +1,5 @@
 # About sociSleep_tracker.
-# sociSleep_tracker_v1.9
+# sociSleep_tracker_v2.0
 # developed by Binbin Wu Ph.D.
 # Ja Lab, UF Scripps Institute, University of Florida
 # © 2025. All rights reserved.
@@ -19,6 +19,7 @@ cam_index = 1  # change if LifeCam is not 1
 INIT_FRAMES = 5   # number of frames to average during initialization
 MAX_MERGE_FACTOR = 0.85  # merged blob threshold = (areaB+areaC)*factor
 movement_threshold = 3
+noise_threshold =20
 
 # === State ===
 fly_area_B = None
@@ -160,7 +161,7 @@ def filter_by_circle(mask, cx, cy, r):
     results=[]
     for c in cnts:
         area=cv2.contourArea(c)
-        if area < 4: continue
+        if area < noise_threshold: continue
         M=cv2.moments(c)
         if M["m00"]==0: continue
         x=int(M["m10"]/M["m00"])
@@ -380,7 +381,6 @@ while True:
     preds_right = {}
     if preds["B"] is not None: preds_right["B"] = preds["B"]
     if preds["C"] is not None: preds_right["C"] = preds["C"]
-    dets_points = [(d[0], d[1]) for d in detections_right]
     
     mapping_right, unmatched_r = nearest_assignment(preds_right, detections_right, max_dist=200)
     if "B" in mapping_right and mapping_right["B"] is not None:
@@ -393,14 +393,16 @@ while True:
         else:
             fly_histories["B"].append(None)
         if preds["B"] is None:
-            if len(detections_right)>=1 and kalman_filters["B"] is None:
+            if len(detections_right)>=2 and kalman_filters["B"] is None:
                 chosen = detections_right[0]
                 kfB = create_kalman(1.0/frames_per_sec)
                 kfB.statePost = np.array([[np.float32(chosen[0])],[np.float32(chosen[1])],[0],[0]], dtype=np.float32)
                 kalman_filters["B"] = kfB
                 fly_histories["B"].append((chosen[0], chosen[1]))
                 last_measurement_time["B"] = datetime.now()
-                
+            else:
+                chosen = None
+
     if "C" in mapping_right and mapping_right["C"] is not None:
         update_kalman(kalman_filters["C"], mapping_right["C"][0], mapping_right["C"][1])
         fly_histories["C"].append(mapping_right["C"])
@@ -411,8 +413,8 @@ while True:
         else:
             fly_histories["C"].append(None)
         if preds["C"] is None:
-            if len(detections_right)==1 and kalman_filters["C"] is None and kalman_filters["B"] is not None:
-                chosen = detections_right[0]
+            if len(detections_right)>=2 and kalman_filters["C"] is None:
+                chosen = detections_right[1]
                 kfC = create_kalman(1.0/frames_per_sec)
                 kfC.statePost = np.array([[np.float32(chosen[0])],[np.float32(chosen[1])],[0],[0]], dtype=np.float32)
                 kalman_filters["C"] = kfC
@@ -489,7 +491,7 @@ while True:
 
     # --- UI labels ---
     cv2.putText(frame, f"A_mov:{movement_flags.get('A',0)} B_mov:{movement_flags.get('B',0)} C_mov:{movement_flags.get('C',0)}",
-                (left_cx + 40, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0), 2)
+                (right_cx - 20, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0), 2)
 
     # STOP button draw
     cv2.rectangle(frame, (stop_button["x1"], stop_button["y1"]), (stop_button["x2"], stop_button["y2"]), (0,0,255), -1)

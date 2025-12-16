@@ -98,7 +98,7 @@ class FlySleepAnalyzer:
         print(f"Results saved to {output_file}")
 
 # === Usage example ===
-file_path = '/Users/binbin/Downloads/wDahomey_night.csv'
+file_path = '/Users/binbin/Downloads/wDahomey_night.csv'    # Fill the movement data file path
 output_file = 'sleep_time.csv'
 custom_fly_ids = ["FlyA_sleep", "FlyB_sleep", "FlyC_sleep"] # Adjust this list length to match your data
 
