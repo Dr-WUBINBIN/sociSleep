@@ -1,5 +1,5 @@
 
-# sociSleep_trajectory_plotting_v1.0.
+# sociSleep_trajectory_plotting_v2.0.
 # designed for plotting output results from sociSleep_tracker_v2.0.
 # developed by Binbin Wu Ph.D.
 # Ja Lab, UF Scripps Institute, University of Florida
@@ -9,7 +9,11 @@
 #Functionalities including:
 # 1. plot fly trajectory (gray),
 # 2. plot fly trajectory with speed display,
-# 3. qualify speed characteristics,
+# 3. calculate high-speed trajectory length,
+# 4. plot close-proximity trajectory (interaction-associated movement),
+# 5. calculate close-proximity movement length and fraction.
+# 6. calculate hight-speed close-proximity movement.
+
 
 
 import numpy as np
@@ -27,18 +31,17 @@ def plot_fly_path(x, y, radius=80):
     valid = ~(np.isnan(x) | np.isnan(y))
     x = x[valid]
     y = y[valid]
-
-    fig, ax = plt.subplots(figsize=(6, 6))
+    fig = plt.figure()
+    ax = plt.subplot(3,3,5)
 
     # Plot trajectory
     ax.plot(x, y, color="black", linewidth=0.5, alpha=0.5)
 
     # Formatting
     ax.set_aspect("equal")
-    ax.set_title("Fly trajectory")
-    ax.set_xlabel("X (pixels)")
-    ax.set_ylabel("Y (pixels)")
-    ax.legend()
+    ax.set_title("Fly trajectory", fontsize = 14)
+    ax.set_xlabel("X (pixels)", fontsize = 14)
+    ax.set_ylabel("Y (pixels)", fontsize = 14)
 
     plt.show()
 
@@ -78,8 +81,10 @@ def plot_fly_path_speed_colored_line(
     if vmax is None:
         vmax = np.percentile(speed, 95)
 
-    fig, ax = plt.subplots(figsize=(6, 6))
-
+    #fig, ax = plt.subplots(figsize=(6, 6))
+    fig = plt.figure()
+    ax = plt.subplot(3,3,5)
+    
     lc = LineCollection(
         segments,
         cmap=cmap,
@@ -91,12 +96,12 @@ def plot_fly_path_speed_colored_line(
 
     ax.autoscale()
     ax.set_aspect("equal")
-    ax.set_xlabel("X (pixels)")
-    ax.set_ylabel("Y (pixels)")
-    ax.set_title("Fly trajectory (speed-colored line)")
+    ax.set_xlabel("X (pixels)", fontsize = 14)
+    ax.set_ylabel("Y (pixels)", fontsize = 14)
+    ax.set_title("Fly trajectory", fontsize = 14)
 
     cbar = plt.colorbar(lc, ax=ax)
-    cbar.set_label("Speed (pixels / sec)")
+    cbar.set_label("Speed (pixels / s)", fontsize = 14)
 
     plt.show()
 
@@ -132,7 +137,7 @@ def quantify_speed(x, y, sampling_interval_sec=1, high_speed_thresh=40, immobile
 
 def plot_proximity_colored_path(
     xB, yB, xC, yC,
-    distance_thresh=15,
+    distance_thresh=30,
     sampling_interval_sec=1,
     linewidth=0.5):
     xB = np.asarray(xB)
@@ -157,25 +162,27 @@ def plot_proximity_colored_path(
     # Color mask
     close_mask = dist[:-1] < distance_thresh
 
-    colors = np.where(close_mask, "gold", "gray")
+    colors = np.where(close_mask, "gold", "black")
 
-    fig, ax = plt.subplots(figsize=(6, 6))
-
+    #fig, ax = plt.subplots(figsize=(6, 6))
+    fig = plt.figure()
+    ax = plt.subplot(3,3,5)
+    
     lc = LineCollection(segments, colors=colors, linewidth=linewidth)
     ax.add_collection(lc)
 
     ax.autoscale()
     ax.set_aspect("equal")
-    ax.set_title("Co-movement trajectory")
-    ax.set_xlabel("X (pixels)")
-    ax.set_ylabel("Y (pixels)")
+    ax.set_title("Co-movement trajectory", fontsize = 14)
+    ax.set_xlabel("X (pixels)", fontsize = 14)
+    ax.set_ylabel("Y (pixels)", fontsize = 14)
 
     plt.show()
 
     return close_mask
 
 
-def proximity_path_length(xB, yB, xC, yC, distance_thresh=15):
+def proximity_path_length(xB, yB, xC, yC, distance_thresh=30):
     xB = np.asarray(xB)
     yB = np.asarray(yB)
     xC = np.asarray(xC)
@@ -206,18 +213,76 @@ def proximity_path_length(xB, yB, xC, yC, distance_thresh=15):
     }
 
 
+# Calculate Fly B path length when Fly C is nearby AND Fly B is moving fast.
+def proximity_highspeed_path_length(
+    xB, yB, xC, yC,
+    distance_thresh=30,
+    high_speed_thresh=30,
+    immobile=3,
+    sampling_interval_sec=1):
+
+    xB = np.asarray(xB)
+    yB = np.asarray(yB)
+    xC = np.asarray(xC)
+    yC = np.asarray(yC)
+
+    # Synchronous NaN removal
+    valid = ~(np.isnan(xB) | np.isnan(yB) | np.isnan(xC) | np.isnan(yC))
+    xB, yB, xC, yC = xB[valid], yB[valid], xC[valid], yC[valid]
+
+    if len(xB) < 2:
+        return None
+
+    # Fly B segment lengths
+    dx = np.diff(xB)
+    dy = np.diff(yB)
+    segment_length = np.sqrt(dx**2 + dy**2)
+
+    # Fly B speed (pixels/sec)
+    speedB = segment_length / sampling_interval_sec
+
+    # Inter-fly distance (aligned to segments)
+    dist = np.sqrt((xB - xC)**2 + (yB - yC)**2)
+    proximity_mask = dist[:-1] < distance_thresh
+
+    # Movement masks
+    moving_mask = speedB > immobile
+    high_speed_mask = speedB > high_speed_thresh
+
+    # Combined condition
+    combined_mask = proximity_mask & moving_mask & high_speed_mask
+
+    proximity_highspeed_distance = np.sum(segment_length[combined_mask])
+    total_movement_distance = np.sum(segment_length[moving_mask])
+
+    return {
+        "proximity_highspeed_distance": proximity_highspeed_distance,
+        "fraction_of_movement": (
+            proximity_highspeed_distance / total_movement_distance
+            if total_movement_distance > 0 else 0
+        )
+    }
+
+
+
+
+
+
 #-------------------example usage-----------------
-df = pd.read_csv("/Users/binbin/Documents/social_sleep_tracker/results/wCS/3/raw data/Dec20.csv")
+df = pd.read_csv("/Users/binbin/Documents/social_sleep_tracker/results/wCS/9/raw data/Jan28.csv")
 
 # Example: Fly A
-x = df["B_x"].iloc[43200:86400]
-y = df["B_y"].iloc[43200:86400]
+# Daytime [0:43200]; Nighttime [43200:86400]
+x = df["C_x"].iloc[43200:86400]
+y = df["C_y"].iloc[43200:86400]
 
+"""
 #------fly trajectory---------
 plot_fly_path(
     x, y,
     radius=80,         # arena radius in pixels 
 )
+"""
 
 #------fly trajectory with speed---------
 
@@ -226,17 +291,19 @@ plot_fly_path_speed_colored_line(
     vmin=0,
     vmax=60
 )
-
+# define high speed threshold = 30 !!!!!!!!!!!!!!!!!!!!
 speed_summary = quantify_speed(x, y, sampling_interval_sec=1, high_speed_thresh=30, immobile=3)
-print("\n\n",speed_summary)
+print('\n\nHigh-speed movement:')
+print("\n",speed_summary)
 
 
 #-------interaction-associated trajectory--------
-df = pd.read_csv("/Users/binbin/Documents/social_sleep_tracker/results/wDahomey/7/raw data/Jan09.csv")
+df = pd.read_csv("/Users/binbin/Documents/social_sleep_tracker/results/wCS/9/raw data/Jan28.csv")
 proximity_value = 30  # the distance threshold for determining interaction-associated movement.
 
 
-# Example: Fly A
+# Example: Fly B, C
+# Daytime [0:43200]; Nighttime [43200:86400]
 xB = df["B_x"].iloc[43200:86400]
 yB = df["B_y"].iloc[43200:86400]
 xC = df["C_x"].iloc[43200:86400]
@@ -248,4 +315,14 @@ mask = plot_proximity_colored_path(
 )
 
 metrics = proximity_path_length(xB, yB, xC, yC, distance_thresh=proximity_value)
-print("\n\n",metrics)
+print('\n\nCo-movement trajectory:')
+print("\n",metrics)
+
+
+ph_metrics = proximity_highspeed_path_length(
+    xB, yB, xC, yC,
+    distance_thresh=proximity_value,
+    high_speed_thresh=30,
+    immobile=3)
+print("\n\nCo-movement + high-speed metrics:")
+print("\n", ph_metrics)
