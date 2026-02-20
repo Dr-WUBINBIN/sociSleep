@@ -1,10 +1,11 @@
 # About sociSleep_tracker.
-# sociSleep_tracker_v2.0
+# sociSleep_tracker_v2.1
 # developed by Binbin Wu Ph.D.
 # Ja Lab, UF Scripps Institute, University of Florida
-# © 2025. All rights reserved.
+# © 2026. All rights reserved.
 
-#------------version 2.0 for camera setting on Windows PC----------
+#------------version 2.1 for camera setting on macOS----------
+
 import cv2
 import numpy as np
 import pandas as pd
@@ -16,7 +17,7 @@ import sys
 
 # === Config ===
 OUTPUT_FILENAME = "fly_movement_data.csv"
-cam_index = 1  # change if LifeCam is not 1
+cam_index = 0  # change if LifeCam is not 1
 INIT_FRAMES = 5   # number of frames to average during initialization
 MAX_MERGE_FACTOR = 0.85  # merged blob threshold = (areaB+areaC)*factor
 movement_threshold = 3
@@ -32,25 +33,26 @@ output_file = os.path.join(os.getcwd(), OUTPUT_FILENAME)
 csv_header_written = False
 
 # open camera
-cap = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW)
+#cap = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW) # FOR Windows PC
+cap = cv2.VideoCapture(cam_index, cv2.CAP_AVFOUNDATION)
+
 if not cap.isOpened():
-    print("❌ Cannot open LifeCam (index {}). Try changing cam_index.".format(cam_index))
+    print("❌ Cannot open camera (index {}). Try changing cam_index.".format(cam_index))
     sys.exit(1)
-print("✅ LifeCam opened via DirectShow (index {}).".format(cam_index))
+print("✅ Camera opened via AVFoundation (index {}).".format(cam_index))
+
+# Reduce resolution for stability on older Mac
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+cap.set(cv2.CAP_PROP_FPS, 20)
+time.sleep(0.5)
+
 
 # verify the actual dimensions the camera is using
 actual_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 actual_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 print(f"📐 Camera reports actual resolution: {actual_width}x{actual_height}")
 
-# open camera settings dialog (native DirectShow property page).
-def open_camera_settings_dialog_callback(state, userdata):
-    try:
-        cap.set(cv2.CAP_PROP_SETTINGS, 1)
-        time.sleep(0.5)
-    except Exception as e:
-        print("⚠️ Could not open property dialog via OpenCV:", e)
-        return
 
 # measure FPS
 fps = cap.get(cv2.CAP_PROP_FPS)
@@ -72,6 +74,40 @@ cv2.createTrackbar('Right_CX','Arena Settings', 440, 640, nothing)
 cv2.createTrackbar('Right_CY','Arena Settings', 240, 480, nothing)
 cv2.createTrackbar('Right_R', 'Arena Settings', 150, 400, nothing)
 
+
+# Camera geometry sliders
+cv2.namedWindow("Camera Settings", cv2.WINDOW_AUTOSIZE)
+# Brightness, Contrast, Exposure sliders (0–100 scale)
+def nothing(x): pass
+cv2.createTrackbar('Brightness', 'Camera Settings', 50, 100, nothing)
+cv2.createTrackbar('Contrast',   'Camera Settings', 50, 100, nothing)
+cv2.createTrackbar('Exposure',   'Camera Settings', 50, 100, nothing)
+cv2.createTrackbar('Saturation', 'Camera Settings', 50, 100, nothing)
+
+# Track previous camera setting values to only apply when changed
+prev_camera_settings = {
+    'brightness': -1,
+    'contrast': -1,
+    'exposure': -1,
+    'saturation': -1
+}
+
+# Check which camera properties are supported
+print("\n📷 Checking camera property support...")
+brightness_supported = cap.set(cv2.CAP_PROP_BRIGHTNESS, 0.5)
+contrast_supported = cap.set(cv2.CAP_PROP_CONTRAST, 0.5)
+exposure_supported = cap.set(cv2.CAP_PROP_EXPOSURE, -6)
+saturation_supported = cap.set(cv2.CAP_PROP_SATURATION, 0.5)
+auto_exposure_supported = cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+
+print(f"  Brightness: {'✅' if brightness_supported else '❌'}")
+print(f"  Contrast: {'✅' if contrast_supported else '❌'}")
+print(f"  Exposure: {'✅' if exposure_supported else '❌'}")
+print(f"  Saturation: {'✅' if saturation_supported else '❌'}")
+print(f"  Auto-Exposure: {'✅' if auto_exposure_supported else '❌'}")
+print("  Note: If hardware settings don't work, software adjustments will be used.\n")
+
+
 # STOP/START and camera-setting button
 stop_button = {"x1": 10, "y1": 10, "x2": 110, "y2": 50, "pressed": False}
 settings_button = {"x1": 10, "y1": 60, "x2": 110, "y2": 100}
@@ -84,10 +120,6 @@ def mouse_callback(event, x, y, flags, param):
         # STOP button
         if stop_button["x1"] <= x <= stop_button["x2"] and stop_button["y1"] <= y <= stop_button["y2"]:
             stop_button["pressed"] = True
-            return
-        # Camera-setting button
-        if settings_button["x1"] <= x <= settings_button["x2"] and settings_button["y1"] <= y <= settings_button["y2"]:
-            open_camera_settings_dialog_callback(None, None)
             return
         
         # initialization clicks
@@ -271,7 +303,65 @@ while True:
         time.sleep(0.5)
         continue
     frame_counter += 1
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    # --- Read camera sliders and apply settings ---
+    brightness_val = cv2.getTrackbarPos('Brightness', 'Camera Settings')
+    contrast_val   = cv2.getTrackbarPos('Contrast', 'Camera Settings')
+    exposure_val   = cv2.getTrackbarPos('Exposure', 'Camera Settings')
+    saturation_val = cv2.getTrackbarPos('Saturation', 'Camera Settings')
+    
+    # Apply hardware camera settings only when values change (for efficiency)
+    if brightness_val != prev_camera_settings['brightness'] and brightness_supported:
+        brightness_normalized = brightness_val / 100.0
+        if cap.set(cv2.CAP_PROP_BRIGHTNESS, brightness_normalized):
+            prev_camera_settings['brightness'] = brightness_val
+    
+    if contrast_val != prev_camera_settings['contrast'] and contrast_supported:
+        contrast_normalized = contrast_val / 100.0
+        if cap.set(cv2.CAP_PROP_CONTRAST, contrast_normalized):
+            prev_camera_settings['contrast'] = contrast_val
+    
+    if exposure_val != prev_camera_settings['exposure'] and exposure_supported:
+        if auto_exposure_supported:
+            cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)  # Manual mode
+        # Map slider (0-100) to exposure range (-13 to 0) for macOS
+        exposure_normalized = -13.0 + (exposure_val / 100.0) * 13.0
+        if cap.set(cv2.CAP_PROP_EXPOSURE, exposure_normalized):
+            prev_camera_settings['exposure'] = exposure_val
+    
+    if saturation_val != prev_camera_settings['saturation'] and saturation_supported:
+        saturation_normalized = saturation_val / 100.0
+        if cap.set(cv2.CAP_PROP_SATURATION, saturation_normalized):
+            prev_camera_settings['saturation'] = saturation_val
+    
+    # Apply software-based adjustments if hardware settings aren't supported
+    use_software_adjustments = (not brightness_supported or not contrast_supported or not saturation_supported)
+    
+    # Initialize frame_adjusted (will be used for display)
+    frame_adjusted = frame.copy()
+    
+    if use_software_adjustments:
+        # Apply software adjustments to frame
+        if not brightness_supported:
+            # Software brightness adjustment: add/subtract value
+            brightness_adj = (brightness_val - 50) * 2.55  # -127.5 to +127.5
+            frame_adjusted = cv2.convertScaleAbs(frame_adjusted, alpha=1, beta=brightness_adj)
+        
+        if not contrast_supported:
+            # Software contrast adjustment: multiply by factor
+            contrast_factor = 1.0 + (contrast_val - 50) / 50.0  # 0.0 to 2.0
+            frame_adjusted = cv2.convertScaleAbs(frame_adjusted, alpha=contrast_factor, beta=0)
+        
+        if not saturation_supported:
+            # Software saturation adjustment in HSV space
+            hsv = cv2.cvtColor(frame_adjusted, cv2.COLOR_BGR2HSV)
+            saturation_factor = saturation_val / 50.0  # 0.0 to 2.0
+            hsv[:,:,1] = cv2.multiply(hsv[:,:,1], saturation_factor).clip(0, 255).astype(np.uint8)
+            frame_adjusted = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+    
+    # Use adjusted frame for processing (if software adjustments were applied)
+    # Otherwise use original frame (hardware is handling adjustments)
+    gray = cv2.cvtColor(frame_adjusted if use_software_adjustments else frame, cv2.COLOR_BGR2GRAY)
 
     # --- Read UI values ---
     left_cx = cv2.getTrackbarPos('Left_CX','Arena Settings')
@@ -285,9 +375,13 @@ while True:
     _, mask = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
     mask = cv2.medianBlur(mask, 5)
 
+    # Use adjusted frame for display if any software adjustments were applied
+    # Otherwise use original frame (hardware settings are controlling the camera)
+    display_frame = frame_adjusted if use_software_adjustments else frame
+    
     # --- Arena circles ---
-    cv2.circle(frame, (left_cx,left_cy), left_r, (0,255,0), 2)
-    cv2.circle(frame, (right_cx,right_cy), right_r, (0,255,0), 2)
+    cv2.circle(display_frame, (left_cx,left_cy), left_r, (0,255,0), 2)
+    cv2.circle(display_frame, (right_cx,right_cy), right_r, (0,255,0), 2)
     boxes = [
         ("left",  left_cx,  left_cy,  left_r),
         ("right", right_cx, right_cy, right_r)
@@ -427,11 +521,11 @@ while True:
     for (cx,cy,area) in detections_left:
         if not ((cx-left_cx)**2 + (cy-left_cy)**2 <= left_r**2):
             continue
-        cv2.circle(frame, (cx,cy), 6, (0,0,0), 1)
+        cv2.circle(display_frame, (cx,cy), 6, (0,0,0), 1)
     for (cx,cy,area) in detections_right:
         if not ((cx-right_cx)**2 + (cy-right_cy)**2 <= right_r**2):
             continue
-        cv2.circle(frame, (cx,cy), 6, (0,0,0), 1)
+        cv2.circle(display_frame, (cx,cy), 6, (0,0,0), 1)
     display_positions = {}
     for label in ["A","B","C"]:
         hist = fly_histories[label]
@@ -439,8 +533,8 @@ while True:
             pos = hist[-1]
             display_positions[label] = pos
             color = (0,0,255) if label=="A" else (255,0,0) if label=="B" else (0,255,0)
-            cv2.drawMarker(frame, (int(pos[0]), int(pos[1])), color, cv2.MARKER_TILTED_CROSS, 20, 2)
-            cv2.putText(frame, f"Fly{label} {int(pos[0])},{int(pos[1])}", (int(pos[0])+10, int(pos[1])-10),
+            cv2.drawMarker(display_frame, (int(pos[0]), int(pos[1])), color, cv2.MARKER_TILTED_CROSS, 20, 2)
+            cv2.putText(display_frame, f"Fly{label} {int(pos[0])},{int(pos[1])}", (int(pos[0])+10, int(pos[1])-10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
         else:
             display_positions[label] = (None,None)
@@ -492,23 +586,30 @@ while True:
         last_log_time = now
 
     # --- UI labels ---
-    cv2.putText(frame, f"A_mov:{movement_flags.get('A',0)} B_mov:{movement_flags.get('B',0)} C_mov:{movement_flags.get('C',0)}",
+    cv2.putText(display_frame, f"A_mov:{movement_flags.get('A',0)} B_mov:{movement_flags.get('B',0)} C_mov:{movement_flags.get('C',0)}",
                 (right_cx - 20, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0), 2)
+    
+    # Show camera settings status
+    settings_status = []
+    if brightness_supported: settings_status.append("B")
+    if contrast_supported: settings_status.append("C")
+    if exposure_supported: settings_status.append("E")
+    if saturation_supported: settings_status.append("S")
+    status_text = f"HW:{''.join(settings_status) if settings_status else 'None'}"
+    cv2.putText(display_frame, status_text, (10, display_frame.shape[0] - 20), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255), 1)
 
     # STOP button draw
-    cv2.rectangle(frame, (stop_button["x1"], stop_button["y1"]), (stop_button["x2"], stop_button["y2"]), (0,0,255), -1)
-    cv2.putText(frame, "Stop", (stop_button["x1"]+10, stop_button["y1"]+30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255,255,255), 2)
+    cv2.rectangle(display_frame, (stop_button["x1"], stop_button["y1"]), (stop_button["x2"], stop_button["y2"]), (0,0,255), -1)
+    cv2.putText(display_frame, "Stop", (stop_button["x1"]+10, stop_button["y1"]+30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255,255,255), 2)
 
-    # camera-setting button draw
-    cv2.rectangle(frame, (settings_button["x1"], settings_button["y1"]), (settings_button["x2"], settings_button["y2"]), (255, 100, 0), -1)
-    cv2.putText(frame, "Camera", (settings_button["x1"] + 10, settings_button["y1"] + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-    
+
     # START button draw
-    cv2.rectangle(frame, (start_button["x1"], start_button["y1"]), (start_button["x2"], start_button["y2"]), (0, 255, 0), -1)
-    cv2.putText(frame, "Start", (start_button["x1"] + 5, start_button["y1"] + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,255), 2)
+    cv2.rectangle(display_frame, (start_button["x1"], start_button["y1"]), (start_button["x2"], start_button["y2"]), (0, 255, 0), -1)
+    cv2.putText(display_frame, "Start", (start_button["x1"] + 5, start_button["y1"] + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,255), 2)
     
     # Show
-    cv2.imshow("Fly Tracker", frame)
+    cv2.imshow("Fly Tracker", display_frame)
 
     # Exit
     if cv2.waitKey(1) & 0xFF == ord('q') or stop_button["pressed"]:

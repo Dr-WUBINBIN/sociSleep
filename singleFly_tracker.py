@@ -3,6 +3,8 @@
 # Ja Lab, UF Scripps Institute, University of Florida
 # © 2026. All rights reserved.
 
+#------version 2.1 for camera setting on Windows PC---------
+
 import cv2
 import numpy as np
 import pandas as pd
@@ -256,7 +258,8 @@ while True:
     ret, frame = cap.read()
     if not ret:
         print("⚠️ Frame not captured.")
-        break
+        time.sleep(0.5)
+        continue
     frame_counter += 1
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
