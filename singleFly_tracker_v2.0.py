@@ -1,9 +1,9 @@
-# About singleFly_tracker_v1.0
+# About singleFly_tracker_v2.0
 # developed by Binbin Wu Ph.D.
 # Ja Lab, UF Scripps Institute, University of Florida
 # © 2026. All rights reserved.
 
-#------version 2.1 for camera setting on Windows PC---------
+#------version 2.0 for camera setting on Windows PC---------
 
 import cv2
 import numpy as np
