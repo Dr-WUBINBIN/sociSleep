@@ -8,7 +8,7 @@ This analyzer is desgined to analyze the output result from social_sleep_tracker
 # sociSleep_trajectory_plotting
 This tool plots various fly trajectories using the output result from social_sleep_tracker.
 
-# singFly_tracker
+# singleFly_tracker_v2.0
 This tool is designed to monitor fly solo vs solo in both arenas.
 
 # sociSleep_double_tracker
