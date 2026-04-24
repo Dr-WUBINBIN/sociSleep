@@ -1,6 +1,6 @@
-# social_sleep_tracker
+# sociSleep_tracker_v2.0
 This tool is designed to monitor fly sleep and movement in single- and group-housed environments.
-Please watch the demo in the relase.
+Please watch the demo in the release.
 
 # sociSleep_analyzer
 This analyzer is desgined to analyze the output result from social_sleep_tracker.
