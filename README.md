@@ -124,7 +124,7 @@ The program automatically detects connected USB cameras, and output camera names
 camera_detector.py
 ```
 
-Modify camera models at Line 7.
+Modify camera names (just keyword) at Line 7.
 
 
 ```bash
