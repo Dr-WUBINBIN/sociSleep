@@ -250,7 +250,7 @@ If you use sociSleep in your research, please cite:
 
 ## License
 
-MIT License
+GPL-3.0 open-source License
 
 ---
 
