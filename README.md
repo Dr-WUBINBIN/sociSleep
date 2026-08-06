@@ -10,6 +10,8 @@ Identity-preserving tracking of individual Drosophila behavior in social environ
 
 Unlike conventional Drosophila sleep systems that require physical isolation of animals, sociSleep continuously tracks individuals within shared arenas, allowing long-term measurement of sleep while preserving social interactions.
 
+![Project Demo](./images/sociSleep_autoGif.gif)
+
 ---
 
 ## Features
